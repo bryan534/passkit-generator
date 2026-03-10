@@ -87,86 +87,95 @@ export default function App() {
         <img src="/logo.png" alt="Evolutions Fitness & Wellness Center" className="gym-logo" />
         <div className="divider" />
 
-        {state === 'success' ? (
-          <div className="success">
-            <div className="success-icon">
-              <svg className="checkmark" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle className="checkmark-circle" cx="26" cy="26" r="24" stroke="#22c55e" strokeWidth="2.5"/>
-                <path className="checkmark-check" d="M14 26l9 9 16-16" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+        <div className="fade-in" key={state === 'success' ? 'success' : 'form'}>
+          {state === 'success' ? (
+            <div className="success">
+              <div className="success-icon">
+                <svg className="checkmark" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle className="checkmark-circle" cx="26" cy="26" r="24" stroke="#22c55e" strokeWidth="2.5"/>
+                  <path className="checkmark-check" d="M14 26l9 9 16-16" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <h2>Pass Ready</h2>
+              <p>
+                Your Evolutions membership pass has been downloaded.<br />
+                Open it to add to Apple Wallet.
+              </p>
+              <button className="reset-btn" onClick={reset}>
+                Generate Another
+              </button>
             </div>
-            <h2>Pass Ready</h2>
-            <p>
-              Your Evolutions membership pass has been downloaded.<br />
-              Open it to add to Apple Wallet.
-            </p>
-            <button className="reset-btn" onClick={reset}>
-              Generate Another
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} noValidate>
-            <p className="card-title">Membership Pass</p>
+          ) : (
+            <form onSubmit={handleSubmit} noValidate>
+              <p className="card-title">Membership Pass</p>
 
-            <div className="field">
-              <label htmlFor="name">Member Name</label>
-              <input
-                id="name"
-                type="text"
-                placeholder="John Smith"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                autoComplete="name"
-                autoCapitalize="words"
-                required
-              />
-            </div>
+              <div className="field">
+                <label htmlFor="name">Member Name</label>
+                <input
+                  id="name"
+                  type="text"
+                  placeholder="John Smith"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  autoComplete="name"
+                  autoCapitalize="words"
+                  required
+                />
+              </div>
 
-            <div className="field">
-              <label htmlFor="member-id">Membership #</label>
-              <input
-                id="member-id"
-                type="text"
-                inputMode="numeric"
-                placeholder="100005821"
-                value={memberId}
-                onChange={e => setMemberId(e.target.value.replace(/\D/g, ''))}
-                required
-                aria-invalid={memberIdDirty && !memberIdValid}
-              />
-              {memberIdDirty && !memberIdValid && (
-                <p className="error-msg" style={{ marginTop: '0.4rem' }}>
-                  Must be 6–12 digits
-                </p>
+              <div className="field">
+                <label htmlFor="member-id">Membership #</label>
+                <input
+                  id="member-id"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="100005821"
+                  value={memberId}
+                  onChange={e => setMemberId(e.target.value.replace(/\D/g, ''))}
+                  required
+                  aria-invalid={memberIdDirty && !memberIdValid}
+                />
+                {memberIdDirty && !memberIdValid && (
+                  <p className="error-msg" style={{ marginTop: '0.4rem' }}>
+                    Must be 6–12 digits
+                  </p>
+                )}
+              </div>
+
+              <div className="field">
+                <label htmlFor="member-since">
+                  Member Since
+                  <span className="optional">optional</span>
+                </label>
+                <input
+                  id="member-since"
+                  type="date"
+                  value={memberSince}
+                  onChange={e => setMemberSince(e.target.value)}
+                />
+              </div>
+
+              {state === 'error' && (
+                <p className="error-msg">{errorMsg}</p>
               )}
-            </div>
 
-            <div className="field">
-              <label htmlFor="member-since">
-                Member Since
-                <span className="optional">optional</span>
-              </label>
-              <input
-                id="member-since"
-                type="date"
-                value={memberSince}
-                onChange={e => setMemberSince(e.target.value)}
-              />
-            </div>
-
-            {state === 'error' && (
-              <p className="error-msg">{errorMsg}</p>
-            )}
-
-            <button
-              type="submit"
-              className="submit-btn"
-              disabled={!canSubmit || state === 'loading'}
-            >
-              {state === 'loading' ? 'Generating…' : 'Add to Apple Wallet'}
-            </button>
-          </form>
-        )}
+              <button
+                type="submit"
+                className="submit-btn"
+                disabled={!canSubmit || state === 'loading'}
+              >
+                {state === 'loading' ? (
+                  <>
+                    <div className="spinner" />
+                    Generating…
+                  </>
+                ) : (
+                  'Add to Apple Wallet'
+                )}
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </>
   )

@@ -12,6 +12,29 @@ rules = [
 directory = "../pass-portal/dist"
 binding = "ASSETS"
 
+[[kv_namespaces]]
+binding = "PASS_REGISTRATIONS"
+id = "8032df424d5a4ad28a931f479c5b0d7f"
+
+# Push updates at each gym open/close transition (Chicago = UTC-6 standard)
+# Mon-Thu: open 4:30am CST = 10:30 UTC, close 10:00pm CST = 04:00 UTC next day
+# Fri:     open 4:30am CST = 10:30 UTC, close 8:00pm  CST = 02:00 UTC next day
+# Sat-Sun: open 6:00am CST = 12:00 UTC, close 6:00pm  CST = 00:00 UTC next day
+# Push at each open/close transition time (UTC). Runs daily — always correct.
+# 00:00 UTC = 6pm CST (Sat/Sun close)
+# 02:00 UTC = 8pm CST (Fri close)
+# 04:00 UTC = 10pm CST (Mon-Thu close)
+# 10:30 UTC = 4:30am CST (Mon-Fri open)
+# 12:00 UTC = 6am CST (Sat/Sun open)
+[triggers]
+crons = [
+  "0 0 * * *",
+  "0 2 * * *",
+  "0 4 * * *",
+  "30 10 * * *",
+  "0 12 * * *"
+]
+
 [vars]
 WWDR = """ \
 -----BEGIN CERTIFICATE----- \
