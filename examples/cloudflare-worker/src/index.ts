@@ -151,7 +151,7 @@ export default {
 				if (!checkPassAuth(request, env)) return new Response(null, { status: 401 });
 				const { pushToken } = await request.json<{ pushToken: string }>();
 				const key = `reg:${deviceId}:${passTypeId}:${serialNumber}`;
-				const existing = await env.PASS_REGISTRATIONS.get(key);
+				const existing = await env.PASS_REGISTRATIONS.get(key, { cacheTtl: 60 });
 				await env.PASS_REGISTRATIONS.put(key, JSON.stringify({ pushToken, deviceId }));
 				return new Response(null, { status: existing ? 200 : 201 });
 			}
@@ -192,7 +192,7 @@ export default {
 			if (passTypeId !== PASS_TYPE_ID) return new Response(null, { status: 404 });
 			if (!checkPassAuth(request, env)) return new Response(null, { status: 401 });
 
-			const raw = await env.PASS_REGISTRATIONS.get(`member:${serialNumber}`);
+			const raw = await env.PASS_REGISTRATIONS.get(`member:${serialNumber}`, { cacheTtl: 300 });
 			if (!raw) return new Response(null, { status: 404 });
 
 			const member: MemberData = JSON.parse(raw);
@@ -262,7 +262,7 @@ export default {
 		const seen = new Set<string>();
 
 		for (const entry of listed.keys) {
-			const raw = await env.PASS_REGISTRATIONS.get(entry.name);
+			const raw = await env.PASS_REGISTRATIONS.get(entry.name, { cacheTtl: 300 });
 			if (!raw) continue;
 			const { pushToken } = JSON.parse(raw) as { pushToken: string };
 			if (seen.has(pushToken)) continue;

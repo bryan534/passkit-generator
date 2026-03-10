@@ -24,7 +24,7 @@ export default function App() {
   const [cooldown, setCooldown] = useState(false)
   const anchorRef = useRef<HTMLAnchorElement>(null)
 
-  const memberIdValid = /^\d{6,12}$/.test(memberId.trim())
+  const memberIdValid = /^\d{5,12}$/.test(memberId.trim())
   const memberIdDirty = memberId.length > 0
   const canSubmit = name.trim() && memberIdValid && !cooldown
 
@@ -137,7 +137,7 @@ export default function App() {
                 />
                 {memberIdDirty && !memberIdValid && (
                   <p className="error-msg" style={{ marginTop: '0.4rem' }}>
-                    Must be 6–12 digits
+                    Must be 5–12 digits
                   </p>
                 )}
               </div>
