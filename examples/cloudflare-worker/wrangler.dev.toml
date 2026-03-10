@@ -8,11 +8,9 @@ rules = [
   { type = "Data", globs = ["**/*.png"], fallthrough = true }
 ]
 
-[assets]
-directory = "../pass-portal/dist"
-binding = "ASSETS"
-
 [vars]
+SIGNER_PASSPHRASE = "@Brycon534"
+ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:8787"
 WWDR = """ \
 -----BEGIN CERTIFICATE----- \
 MIIEVTCCAz2gAwIBAgIUE9x3lVJx5T3GMujM/+Uh88zFztIwDQYJKoZIhvcNAQEL \
@@ -110,6 +108,3 @@ LgOj3X0PfP1zCmr5byoz8EzSV3K0ceBS8CI6Rm5/Vf9a1kzNizNHrgpu9zRrDTsg \
 zpwBCf1byq1FaTmwn30hXsXi \
 -----END PRIVATE KEY----- \
 """
-
-SIGNER_PASSPHRASE = "@Brycon534"
-ALLOWED_ORIGINS = "https://wallet.bvyan.com,https://pg-cw-example.bryan-contreras83.workers.dev"

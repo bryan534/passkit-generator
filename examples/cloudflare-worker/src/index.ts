@@ -1,53 +1,169 @@
 import { PKPass } from "passkit-generator";
 import { Buffer } from "node:buffer";
 
-/** Assets are handled by Wrangler by specifying the rule inside wrangler.toml */
-import icon from "../../models/exampleBooking.pass/icon.png";
-import icon2x from "../../models/exampleBooking.pass/icon@2x.png";
-import footer from "../../models/exampleBooking.pass/footer.png";
-import footer2x from "../../models/exampleBooking.pass/footer@2x.png";
-import background2x from "../../models/examplePass.pass/background@2x.png";
+import icon from "../../models/gymMembership.pass/icon.png";
+import icon2x from "../../models/gymMembership.pass/icon@2x.png";
+import logo from "../../models/gymMembership.pass/logo.png";
+import logo2x from "../../models/gymMembership.pass/logo@2x.png";
 
 export interface Env {
-	/**
-	 * "var" (instead of let and cost) is required here
-	 * to make typescript mark that these global variables
-	 * are available also in globalThis.
-	 *
-	 * These are secrets we have defined through `wrangler secret put <var name>`.
-	 * @see https://developers.cloudflare.com/workers/platform/environment-variables
-	 */
-
 	WWDR: string;
-	/** Pass signerCert */
 	SIGNER_CERT: string;
-	/** Pass signerKey */
 	SIGNER_KEY: string;
 	SIGNER_PASSPHRASE: string;
+	ACCESS_TOKEN: string;
+	ALLOWED_ORIGINS: string; // comma-separated, e.g. "https://wallet.bvyan.com,http://localhost:5173"
+	ASSETS: Fetcher;
 }
 
-/**
- * Request entry point
- */
+// In-memory rate limiter — 1 request per IP per 10 seconds
+const rateLimits = new Map<string, number>();
+const RATE_LIMIT_MS = 10_000;
+
+function isRateLimited(ip: string): boolean {
+	const now = Date.now();
+	const last = rateLimits.get(ip) ?? 0;
+	if (now - last < RATE_LIMIT_MS) return true;
+	rateLimits.set(ip, now);
+	// Prune entries older than the cooldown window to prevent unbounded growth
+	for (const [key, ts] of rateLimits) {
+		if (now - ts >= RATE_LIMIT_MS) rateLimits.delete(key);
+	}
+	return false;
+}
+
+function getGymStatus(): { status: string; hours: string } {
+	const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }));
+	const day = now.getDay();
+	const hour = now.getHours() + now.getMinutes() / 60;
+
+	let open: number;
+	let close: number;
+	let hours: string;
+
+	if (day >= 1 && day <= 4) {
+		open = 4.5; close = 22;
+		hours = "4:30am - 10:00pm";
+	} else if (day === 5) {
+		open = 4.5; close = 20;
+		hours = "4:30am - 8:00pm";
+	} else {
+		open = 6; close = 18;
+		hours = "6:00am - 6:00pm";
+	}
+
+	return {
+		status: hour >= open && hour < close ? "Open" : "Closed",
+		hours,
+	};
+}
+
+interface MemberData {
+	name: string;
+	id: string;
+	memberSince: string;
+}
+
+function corsHeaders(origin: string) {
+	return {
+		"Access-Control-Allow-Origin": origin,
+		"Access-Control-Allow-Methods": "POST, OPTIONS",
+		"Access-Control-Allow-Headers": "Content-Type",
+	};
+}
 
 export default {
 	async fetch(
 		request: Request,
 		env: Env,
-		ctx: ExecutionContext,
+		_ctx: ExecutionContext,
 	): Promise<Response> {
-		return generatePass(env);
+		const url = new URL(request.url);
+		const origin = request.headers.get("Origin") ?? "";
+		const allowedOrigins = env.ALLOWED_ORIGINS
+			? env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
+			: [];
+
+		// ── OPTIONS preflight ──────────────────────────────────────────────
+		if (request.method === "OPTIONS") {
+			if (!allowedOrigins.includes(origin)) {
+				return new Response(null, { status: 204 });
+			}
+			return new Response(null, { status: 204, headers: corsHeaders(origin) });
+		}
+
+		// ── GET /?token= — direct Safari / browser link ───────────────────
+		if (request.method === "GET" && url.pathname === "/") {
+			const token = url.searchParams.get("token");
+			if (token && token === env.ACCESS_TOKEN) {
+				return generatePass(env, {
+					name: "Bryan Contreras",
+					id: "100004968",
+					memberSince: "March 9, 2026",
+				});
+			}
+			return env.ASSETS.fetch(request);
+		}
+
+		// ── POST /api/pass — frontend form ────────────────────────────────
+		if (request.method === "POST" && url.pathname === "/api/pass") {
+			if (!allowedOrigins.includes(origin)) {
+				return new Response("Forbidden", { status: 403 });
+			}
+
+			const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
+			if (isRateLimited(ip)) {
+				return new Response("Too many requests", {
+					status: 429,
+					headers: corsHeaders(origin),
+				});
+			}
+
+			let member: MemberData;
+			try {
+				member = await request.json<MemberData>();
+			} catch {
+				return new Response("Bad request", {
+					status: 400,
+					headers: corsHeaders(origin),
+				});
+			}
+
+			if (
+				!member.name || member.name.length > 100 ||
+				!member.id || !/^\d{6,12}$/.test(member.id) ||
+				!member.memberSince || member.memberSince.length > 50
+			) {
+				return new Response("Bad request", {
+					status: 400,
+					headers: corsHeaders(origin),
+				});
+			}
+
+			const passResponse = await generatePass(env, member);
+			// Attach CORS headers to the pass response
+			const headers = new Headers(passResponse.headers);
+			for (const [k, v] of Object.entries(corsHeaders(origin))) {
+				headers.set(k, v);
+			}
+			return new Response(passResponse.body, {
+				status: passResponse.status,
+				headers,
+			});
+		}
+
+		// ── Everything else → static assets ───────────────────────────────
+		return env.ASSETS.fetch(request);
 	},
 };
 
-async function generatePass(env: Env) {
+async function generatePass(env: Env, member: MemberData) {
 	const pass = new PKPass(
 		{
 			"icon.png": Buffer.from(icon),
 			"icon@2x.png": Buffer.from(icon2x),
-			"footer.png": Buffer.from(footer),
-			"footer@2x.png": Buffer.from(footer2x),
-			"background@2x.png": Buffer.from(background2x),
+			"logo.png": Buffer.from(logo),
+			"logo@2x.png": Buffer.from(logo2x),
 		},
 		{
 			signerCert: env.SIGNER_CERT,
@@ -56,165 +172,68 @@ async function generatePass(env: Env) {
 			wwdr: env.WWDR,
 		},
 		{
-			description: "Example Pass generated through a cloudflare worker",
-			serialNumber: "81592CQ7838",
-			passTypeIdentifier: "pass.com.passkitgenerator",
-			teamIdentifier: "F53WB8AE67",
-			organizationName: "Apple Inc.",
+			description: "Evolutions Fitness & Wellness Center Membership",
+			serialNumber: member.id,
+			passTypeIdentifier: "pass.bvyan.com",
+			teamIdentifier: "C2G8UXXA46",
+			organizationName: "Evolutions Fitness & Wellness Center",
+			backgroundColor: "rgb(7, 71, 100)",
 			foregroundColor: "rgb(255, 255, 255)",
-			backgroundColor: "rgb(60, 65, 76)",
+			labelColor: "rgb(255, 255, 255)",
 		},
 	);
 
-	pass.setBarcodes("1276451828321");
-	pass.type = "boardingPass";
-	pass.transitType = "PKTransitTypeAir";
+	pass.type = "storeCard";
 
-	pass.headerFields.push(
-		{
-			key: "header1",
-			label: "Data",
-			value: "25 mag",
-			textAlignment: "PKTextAlignmentCenter",
-		},
-		{
-			key: "header2",
-			label: "Volo",
-			value: "EZY997",
-			textAlignment: "PKTextAlignmentCenter",
-		},
-	);
+	pass.primaryFields.push({
+		key: "member-name",
+		label: "MEMBER",
+		value: member.name,
+	});
 
-	pass.primaryFields.push(
-		{
-			key: "IATA-source",
-			value: "NAP",
-			label: "Napoli",
-			textAlignment: "PKTextAlignmentLeft",
-		},
-		{
-			key: "IATA-destination",
-			value: "VCE",
-			label: "Venezia Marco Polo",
-			textAlignment: "PKTextAlignmentRight",
-		},
-	);
+	pass.headerFields.push({
+		key: "membership-number",
+		label: "MEMBERSHIP #",
+		value: member.id,
+	});
 
-	pass.secondaryFields.push(
-		{
-			key: "secondary1",
-			label: "Imbarco chiuso",
-			value: "18:40",
-			textAlignment: "PKTextAlignmentCenter",
-		},
-		{
-			key: "sec2",
-			label: "Partenze",
-			value: "19:10",
-			textAlignment: "PKTextAlignmentCenter",
-		},
-		{
-			key: "sec3",
-			label: "SB",
-			value: "Sì",
-			textAlignment: "PKTextAlignmentCenter",
-		},
-		{
-			key: "sec4",
-			label: "Imbarco",
-			value: "Anteriore",
-			textAlignment: "PKTextAlignmentCenter",
-		},
-	);
+	const { status, hours } = getGymStatus();
 
-	pass.auxiliaryFields.push(
-		{
-			key: "aux1",
-			label: "Passeggero",
-			value: "MR. WHO KNOWS",
-			textAlignment: "PKTextAlignmentLeft",
-		},
-		{
-			key: "aux2",
-			label: "Posto",
-			value: "1A*",
-			textAlignment: "PKTextAlignmentCenter",
-		},
-	);
+	pass.secondaryFields.push({
+		key: "gym-hours",
+		label: status.toUpperCase(),
+		value: hours,
+	});
 
 	pass.backFields.push(
 		{
-			key: "document number",
-			label: "Numero documento:",
-			value: "- -",
-			textAlignment: "PKTextAlignmentLeft",
+			key: "gym-name",
+			label: "Gym",
+			value: "Evolutions Fitness & Wellness Center",
 		},
 		{
-			key: "You're checked in, what next",
-			label: "Hai effettuato il check-in, Quali sono le prospettive",
-			value: "",
-			textAlignment: "PKTextAlignmentLeft",
+			key: "member-id",
+			label: "Member ID",
+			value: member.id,
 		},
 		{
-			key: "Check In",
-			label: "1. check-in✓",
-			value: "",
-			textAlignment: "PKTextAlignmentLeft",
-		},
-		{
-			key: "checkIn",
-			label: "",
-			value: "Le uscite d'imbarco chiudono 30 minuti prima della partenza, quindi sii puntuale. In questo aeroporto puoi utilizzare la corsia Fast Track ai varchi di sicurezza.",
-			textAlignment: "PKTextAlignmentLeft",
-		},
-		{
-			key: "2. Bags",
-			label: "2. Bagaglio",
-			value: "",
-			textAlignment: "PKTextAlignmentLeft",
-		},
-		{
-			key: "Require special assistance",
-			label: "Assistenza speciale",
-			value: "Se hai richiesto assistenza speciale, presentati a un membro del personale nell'area di Consegna bagagli almeno 90 minuti prima del volo.",
-			textAlignment: "PKTextAlignmentLeft",
-		},
-		{
-			key: "3. Departures",
-			label: "3. Partenze",
-			value: "",
-			textAlignment: "PKTextAlignmentLeft",
-		},
-		{
-			key: "photoId",
-			label: "Un documento d’identità corredato di fotografia",
-			value: "è obbligatorio su TUTTI i voli. Per un viaggio internazionale è necessario un passaporto valido o, dove consentita, una carta d’identità.",
-			textAlignment: "PKTextAlignmentLeft",
-		},
-		{
-			key: "yourSeat",
-			label: "Il tuo posto:",
-			value: "verifica il tuo numero di posto nella parte superiore. Durante l’imbarco utilizza le scale anteriori e posteriori: per le file 1-10 imbarcati dalla parte anteriore; per le file 11-31 imbarcati dalla parte posteriore. Colloca le borse di dimensioni ridotte sotto il sedile davanti a te.",
-			textAlignment: "PKTextAlignmentLeft",
-		},
-		{
-			key: "Pack safely",
-			label: "Bagaglio sicuro",
-			value: "Fai clic http://easyjet.com/it/articoli-pericolosi per maggiori informazioni sulle merci pericolose oppure visita il sito CAA http://www.caa.co.uk/default.aspx?catid=2200",
-			textAlignment: "PKTextAlignmentLeft",
-		},
-		{
-			key: "Thank you for travelling easyJet",
-			label: "Grazie per aver viaggiato con easyJet",
-			value: "",
-			textAlignment: "PKTextAlignmentLeft",
+			key: "member-since",
+			label: "Member Since",
+			value: member.memberSince,
 		},
 	);
+
+	pass.setBarcodes({
+		message: member.id,
+		format: "PKBarcodeFormatCode128",
+		messageEncoding: "iso-8859-1",
+		altText: member.id,
+	});
 
 	return new Response(pass.getAsBuffer(), {
 		headers: {
 			"Content-type": pass.mimeType,
-			"Content-disposition": `attachment; filename=myPass.pkpass`,
+			"Content-disposition": `attachment; filename=evolutions-membership.pkpass`,
 		},
 	});
 }

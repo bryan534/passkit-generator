@@ -1,0 +1,234 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Outfit:wght@300;400;500&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --blue: #074764;
+  --blue-light: #0a6491;
+  --blue-glow: rgba(7, 71, 100, 0.4);
+  --bg: #040d12;
+  --card: #081520;
+  --border: rgba(7, 71, 100, 0.4);
+  --text: #ffffff;
+  --muted: rgba(255,255,255,0.45);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.bg-glow {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 0%, rgba(7,71,100,0.25) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 80% 80%, rgba(7,71,100,0.12) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.card {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 2.5rem 2rem;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 0 60px rgba(7,71,100,0.2), 0 20px 40px rgba(0,0,0,0.5);
+  animation: fadeUp 0.5s ease both;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.gym-logo {
+  display: block;
+  width: 200px;
+  margin: 0 auto 1.8rem;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin-bottom: 1.8rem;
+}
+
+.card-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+  margin-bottom: 1.8rem;
+}
+
+.field {
+  margin-bottom: 1.2rem;
+}
+
+label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+
+.optional {
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.2);
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  text-transform: none;
+  margin-left: 0.3rem;
+}
+
+input {
+  width: 100%;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input::placeholder {
+  color: rgba(255,255,255,0.2);
+}
+
+input:focus {
+  border-color: var(--blue-light);
+  box-shadow: 0 0 0 3px var(--blue-glow);
+}
+
+.submit-btn {
+  width: 100%;
+  margin-top: 1.8rem;
+  padding: 0.9rem;
+  background: var(--blue);
+  border: 1px solid var(--blue-light);
+  border-radius: 10px;
+  color: #fff;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: var(--blue-light);
+  box-shadow: 0 0 20px var(--blue-glow);
+}
+
+.submit-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.success {
+  text-align: center;
+  padding: 1rem 0;
+  animation: fadeUp 0.4s ease both;
+}
+
+.success-icon {
+  margin-bottom: 1.2rem;
+  display: flex;
+  justify-content: center;
+}
+
+.checkmark {
+  width: 64px;
+  height: 64px;
+}
+
+.checkmark-circle {
+  stroke-dasharray: 157;
+  stroke-dashoffset: 157;
+  animation: draw-circle 0.4s ease forwards;
+}
+
+.checkmark-check {
+  stroke-dasharray: 36;
+  stroke-dashoffset: 36;
+  animation: draw-check 0.3s ease forwards 0.4s;
+}
+
+@keyframes draw-circle {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes draw-check {
+  to { stroke-dashoffset: 0; }
+}
+
+.success h2 {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.5rem;
+}
+
+.success p {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.reset-btn {
+  width: 100%;
+  margin-top: 1.5rem;
+  padding: 0.75rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--muted);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.reset-btn:hover {
+  border-color: var(--blue-light);
+  color: #fff;
+}
+
+.error-msg {
+  color: #ff6b6b;
+  font-size: 0.78rem;
+  margin-top: 1rem;
+  text-align: center;
+}
