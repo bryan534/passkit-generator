@@ -238,7 +238,7 @@ export default {
 
 			if (
 				!member.name || member.name.length > 100 ||
-				!member.id || !/^\d{6,12}$/.test(member.id) ||
+				!member.id || !/^\d{5,12}$/.test(member.id) ||
 				!member.memberSince || member.memberSince.length > 50
 			) {
 				return new Response("Bad request", { status: 400, headers: corsHeaders(origin) });
