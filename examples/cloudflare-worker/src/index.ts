@@ -348,12 +348,6 @@ async function generatePass(env: Env, member: MemberData) {
 		altText: member.id,
 	});
 
-	pass.setLocations({
-		latitude: 36.225076,
-		longitude: -119.325515,
-		relevantText: "Welcome to Evolutions! Tap to show your membership card.",
-	});
-
 	return new Response(pass.getAsBuffer(), {
 		headers: {
 			"Content-type": pass.mimeType,
