@@ -296,6 +296,8 @@ async function generatePass(env: Env, member: MemberData) {
 			backgroundColor: "rgb(7, 71, 100)",
 			foregroundColor: "rgb(255, 255, 255)",
 			labelColor: "rgb(255, 255, 255)",
+			associatedStoreIdentifiers: [6689523412],
+			appLaunchURL: "https://apps.apple.com/us/app/evolutions-fitness-wellness/id6689523412",
 			webServiceURL: WORKER_URL,
 			authenticationToken: env.PASS_AUTH_TOKEN,
 		},
