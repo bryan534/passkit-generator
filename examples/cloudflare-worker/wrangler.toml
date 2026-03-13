@@ -16,27 +16,15 @@ binding = "ASSETS"
 binding = "PASS_REGISTRATIONS"
 id = "8032df424d5a4ad28a931f479c5b0d7f"
 
-# Push updates at each gym open/close transition (Tulare, CA = America/Los_Angeles)
-# Both PDT (UTC-7, Mar–Nov) and PST (UTC-8, Nov–Mar) times listed so updates fire year-round.
-#
-# Event              PDT (UTC-7)    PST (UTC-8)
-# Mon-Fri open 4:30a  11:30 UTC      12:30 UTC
-# Sat-Sun open 6:00a  13:00 UTC      14:00 UTC
-# Mon-Thu close 10p   05:00 UTC      06:00 UTC
-# Fri close 8pm       03:00 UTC      04:00 UTC
-# Sat-Sun close 6p    01:00 UTC      02:00 UTC
+# Push updates at each gym open/close transition (PDT = UTC-7, active Mar–Nov).
+# When DST ends in Nov, update times by +1 hour for PST (UTC-8).
 [triggers]
 crons = [
-  "0 1 * * *",
-  "0 2 * * *",
-  "0 3 * * *",
-  "0 4 * * *",
-  "0 5 * * *",
-  "0 6 * * *",
-  "30 11 * * *",
-  "30 12 * * *",
-  "0 13 * * *",
-  "0 14 * * *"
+  "30 11 * * 1-5",  # Mon–Fri open 4:30am PDT
+  "0 13 * * 6-7",   # Sat–Sun open 6:00am PDT (6=Sat, 7=Sun)
+  "0 5 * * 1-4",    # Mon–Thu close 10:00pm PDT
+  "0 3 * * 5",      # Fri close 8:00pm PDT
+  "0 1 * * 6-7"     # Sat–Sun close 6:00pm PDT
 ]
 
 [vars]
