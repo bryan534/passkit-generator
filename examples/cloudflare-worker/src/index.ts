@@ -322,6 +322,7 @@ async function generatePass(env: Env, member: MemberData, workerOrigin: string) 
 		},
 		{
 			description: "Evolutions Fitness & Wellness Center Membership",
+			sharingProhibited: true,
 			serialNumber: member.id,
 			passTypeIdentifier: PASS_TYPE_ID,
 			teamIdentifier: TEAM_ID,
