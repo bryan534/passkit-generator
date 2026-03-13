@@ -17,23 +17,26 @@ binding = "PASS_REGISTRATIONS"
 id = "8032df424d5a4ad28a931f479c5b0d7f"
 
 # Push updates at each gym open/close transition (Tulare, CA = America/Los_Angeles)
-# PDT = UTC-7 (Mar–Nov), PST = UTC-8 (Nov–Mar)
-# Mon-Thu: open 4:30am PT = 11:30 UTC (PDT) / 12:30 UTC (PST), close 10:00pm PT = 05:00 UTC next day (PDT) / 06:00 UTC next day (PST)
-# Fri:     open 4:30am PT = 11:30 UTC (PDT), close 8:00pm PT = 03:00 UTC next day (PDT)
-# Sat-Sun: open 6:00am PT = 13:00 UTC (PDT), close 6:00pm PT = 01:00 UTC next day (PDT)
-# Approximate UTC times — runs at both possible hours to cover DST transitions
-# 01:00 UTC ≈ 6pm PT Sat/Sun close (PDT)
-# 03:00 UTC ≈ 8pm PT Fri close (PDT) / 7pm PST
-# 05:00 UTC ≈ 10pm PT Mon-Thu close (PDT)
-# 11:30 UTC ≈ 4:30am PT Mon-Fri open (PDT)
-# 13:00 UTC ≈ 6am PT Sat/Sun open (PDT)
+# Both PDT (UTC-7, Mar–Nov) and PST (UTC-8, Nov–Mar) times listed so updates fire year-round.
+#
+# Event              PDT (UTC-7)    PST (UTC-8)
+# Mon-Fri open 4:30a  11:30 UTC      12:30 UTC
+# Sat-Sun open 6:00a  13:00 UTC      14:00 UTC
+# Mon-Thu close 10p   05:00 UTC      06:00 UTC
+# Fri close 8pm       03:00 UTC      04:00 UTC
+# Sat-Sun close 6p    01:00 UTC      02:00 UTC
 [triggers]
 crons = [
   "0 1 * * *",
+  "0 2 * * *",
   "0 3 * * *",
+  "0 4 * * *",
   "0 5 * * *",
+  "0 6 * * *",
   "30 11 * * *",
-  "0 13 * * *"
+  "30 12 * * *",
+  "0 13 * * *",
+  "0 14 * * *"
 ]
 
 [vars]

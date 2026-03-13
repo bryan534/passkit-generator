@@ -8,7 +8,6 @@ import logo2x from "../../models/gymMembership.pass/logo@2x.png";
 
 const PASS_TYPE_ID = "pass.bvyan.com";
 const TEAM_ID = "C2G8UXXA46";
-const WORKER_URL = "https://pg-cw-example.bryan-contreras83.workers.dev";
 
 export interface Env {
 	WWDR: string;
@@ -24,26 +23,47 @@ export interface Env {
 	ASSETS: Fetcher;
 }
 
-// ── Rate limiter ────────────────────────────────────────────────────────────
+// ── Rate limiter ─────────────────────────────────────────────────────────────
 const rateLimits = new Map<string, number>();
 const RATE_LIMIT_MS = 10_000;
 
 function isRateLimited(ip: string): boolean {
 	const now = Date.now();
-	const last = rateLimits.get(ip) ?? 0;
-	if (now - last < RATE_LIMIT_MS) return true;
-	rateLimits.set(ip, now);
+	// Cleanup runs unconditionally so expired entries don't accumulate
 	for (const [key, ts] of rateLimits) {
 		if (now - ts >= RATE_LIMIT_MS) rateLimits.delete(key);
 	}
+	const last = rateLimits.get(ip) ?? 0;
+	if (now - last < RATE_LIMIT_MS) return true;
+	rateLimits.set(ip, now);
 	return false;
 }
 
-// ── Gym hours ───────────────────────────────────────────────────────────────
+// ── Allowed origins (parsed once per isolate) ────────────────────────────────
+let _allowedOrigins: string[] | null = null;
+function getAllowedOrigins(env: Env): string[] {
+	if (!_allowedOrigins) {
+		_allowedOrigins = env.ALLOWED_ORIGINS
+			? env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
+			: [];
+	}
+	return _allowedOrigins;
+}
+
+// ── Gym hours ────────────────────────────────────────────────────────────────
 function getGymStatus(): { status: string; hours: string } {
-	const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
-	const day = now.getDay();
-	const hour = now.getHours() + now.getMinutes() / 60;
+	const parts = new Intl.DateTimeFormat("en-US", {
+		timeZone: "America/Los_Angeles",
+		weekday: "short",
+		hour: "2-digit",
+		minute: "2-digit",
+		hour12: false,
+	}).formatToParts(new Date());
+
+	const get = (type: string) => parts.find(p => p.type === type)?.value ?? "0";
+	const dayMap: Record<string, number> = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 };
+	const day = dayMap[get("weekday")] ?? 0;
+	const hour = parseInt(get("hour")) + parseInt(get("minute")) / 60;
 
 	let open: number, close: number, hours: string;
 	if (day >= 1 && day <= 4) {
@@ -57,7 +77,7 @@ function getGymStatus(): { status: string; hours: string } {
 	return { status: hour >= open && hour < close ? "Open" : "Closed", hours };
 }
 
-// ── CORS ────────────────────────────────────────────────────────────────────
+// ── CORS ─────────────────────────────────────────────────────────────────────
 function corsHeaders(origin: string) {
 	return {
 		"Access-Control-Allow-Origin": origin,
@@ -66,25 +86,35 @@ function corsHeaders(origin: string) {
 	};
 }
 
-// ── APNs JWT ────────────────────────────────────────────────────────────────
-async function sendApnsPush(env: Env, pushToken: string): Promise<void> {
+// ── APNs JWT ─────────────────────────────────────────────────────────────────
+let _apnsKey: CryptoKey | null = null;
+
+async function getApnsKey(env: Env): Promise<CryptoKey> {
+	if (_apnsKey) return _apnsKey;
 	const keyBody = env.APNS_KEY
 		.replace(/-----BEGIN PRIVATE KEY-----/, "")
 		.replace(/-----END PRIVATE KEY-----/, "")
 		.replace(/\s/g, "");
-
 	const keyData = Uint8Array.from(atob(keyBody), c => c.charCodeAt(0));
-	const privateKey = await crypto.subtle.importKey(
+	_apnsKey = await crypto.subtle.importKey(
 		"pkcs8",
 		keyData,
 		{ name: "ECDSA", namedCurve: "P-256" },
 		false,
 		["sign"],
 	);
+	return _apnsKey;
+}
+
+function toBase64Url(b64: string): string {
+	return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+async function sendApnsPush(env: Env, pushToken: string): Promise<void> {
+	const privateKey = await getApnsKey(env);
 
 	const now = Math.floor(Date.now() / 1000);
-	const encode = (obj: object) =>
-		btoa(JSON.stringify(obj)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+	const encode = (obj: object) => toBase64Url(btoa(JSON.stringify(obj)));
 
 	const message = `${encode({ alg: "ES256", kid: env.APNS_KEY_ID })}.${encode({ iss: TEAM_ID, iat: now })}`;
 	const sig = await crypto.subtle.sign(
@@ -92,10 +122,7 @@ async function sendApnsPush(env: Env, pushToken: string): Promise<void> {
 		privateKey,
 		new TextEncoder().encode(message),
 	);
-	const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)))
-		.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-
-	const jwt = `${message}.${sigB64}`;
+	const jwt = `${message}.${toBase64Url(btoa(String.fromCharCode(...new Uint8Array(sig))))}`;
 
 	await fetch(`https://api.push.apple.com/3/device/${pushToken}`, {
 		method: "POST",
@@ -109,7 +136,7 @@ async function sendApnsPush(env: Env, pushToken: string): Promise<void> {
 	});
 }
 
-// ── Auth helper ─────────────────────────────────────────────────────────────
+// ── Auth helper ──────────────────────────────────────────────────────────────
 function checkPassAuth(request: Request, env: Env): boolean {
 	const auth = request.headers.get("Authorization") ?? "";
 	return auth === `ApplePass ${env.PASS_AUTH_TOKEN}`;
@@ -126,11 +153,10 @@ interface MemberData {
 export default {
 	async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
 		const url = new URL(request.url);
-		const { method, pathname } = { method: request.method, pathname: url.pathname };
+		const { method } = request;
+		const { pathname } = url;
 		const origin = request.headers.get("Origin") ?? "";
-		const allowedOrigins = env.ALLOWED_ORIGINS
-			? env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
-			: [];
+		const allowedOrigins = getAllowedOrigins(env);
 
 		// ── CORS preflight ───────────────────────────────────────────────────
 		if (method === "OPTIONS") {
@@ -196,7 +222,7 @@ export default {
 			if (!raw) return new Response(null, { status: 404 });
 
 			const member: MemberData = JSON.parse(raw);
-			const passResponse = await generatePass(env, member);
+			const passResponse = await generatePass(env, member, url.origin);
 			const headers = new Headers(passResponse.headers);
 			headers.set("Last-Modified", new Date().toUTCString());
 			return new Response(passResponse.body, { status: 200, headers });
@@ -215,7 +241,7 @@ export default {
 					name: "Bryan Contreras",
 					id: "100004968",
 					memberSince: "March 9, 2026",
-				});
+				}, url.origin);
 			}
 			return env.ASSETS.fetch(request);
 		}
@@ -247,7 +273,7 @@ export default {
 			// Store member data so we can regenerate the pass on push updates
 			await env.PASS_REGISTRATIONS.put(`member:${member.id}`, JSON.stringify(member));
 
-			const passResponse = await generatePass(env, member);
+			const passResponse = await generatePass(env, member, url.origin);
 			const headers = new Headers(passResponse.headers);
 			for (const [k, v] of Object.entries(corsHeaders(origin))) headers.set(k, v);
 			return new Response(passResponse.body, { status: passResponse.status, headers });
@@ -259,21 +285,28 @@ export default {
 	// ── Cron: push update to all registered devices ──────────────────────────
 	async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
 		const listed = await env.PASS_REGISTRATIONS.list({ prefix: "reg:" });
-		const seen = new Set<string>();
 
-		for (const entry of listed.keys) {
-			const raw = await env.PASS_REGISTRATIONS.get(entry.name, { cacheTtl: 300 });
+		// Fetch all registrations concurrently
+		const raws = await Promise.all(
+			listed.keys.map(entry => env.PASS_REGISTRATIONS.get(entry.name, { cacheTtl: 300 })),
+		);
+
+		// Fire all pushes concurrently, deduplicating by pushToken
+		const seen = new Set<string>();
+		const pushes: Promise<void>[] = [];
+		for (const raw of raws) {
 			if (!raw) continue;
 			const { pushToken } = JSON.parse(raw) as { pushToken: string };
 			if (seen.has(pushToken)) continue;
 			seen.add(pushToken);
-			await sendApnsPush(env, pushToken);
+			pushes.push(sendApnsPush(env, pushToken));
 		}
+		await Promise.all(pushes);
 	},
 };
 
 // ── Pass generation ──────────────────────────────────────────────────────────
-async function generatePass(env: Env, member: MemberData) {
+async function generatePass(env: Env, member: MemberData, workerOrigin: string) {
 	const pass = new PKPass(
 		{
 			"icon.png": Buffer.from(icon),
@@ -298,7 +331,7 @@ async function generatePass(env: Env, member: MemberData) {
 			labelColor: "rgb(255, 255, 255)",
 			associatedStoreIdentifiers: [6689523412],
 			appLaunchURL: "https://apps.apple.com/us/app/evolutions-fitness-wellness/id6689523412",
-			webServiceURL: WORKER_URL,
+			webServiceURL: workerOrigin,
 			authenticationToken: env.PASS_AUTH_TOKEN,
 		},
 	);

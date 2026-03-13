@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Read(//Users/bryan/Downloads/**)"
+      "Read(//Users/bryan/Downloads/**)",
+      "Bash(which codex:*)"
     ]
   }
 }
