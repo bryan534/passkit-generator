@@ -41,7 +41,7 @@ function isRateLimited(ip: string): boolean {
 
 // ── Gym hours ───────────────────────────────────────────────────────────────
 function getGymStatus(): { status: string; hours: string } {
-	const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }));
+	const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
 	const day = now.getDay();
 	const hour = now.getHours() + now.getMinutes() / 60;
 
