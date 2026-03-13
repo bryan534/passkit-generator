@@ -345,7 +345,7 @@ async function generatePass(env: Env, member: MemberData) {
 
 	pass.setBarcodes({
 		message: member.id,
-		format: "PKBarcodeFormatCode128",
+		format: "PKBarcodeFormatQR",
 		messageEncoding: "iso-8859-1",
 		altText: member.id,
 	});
