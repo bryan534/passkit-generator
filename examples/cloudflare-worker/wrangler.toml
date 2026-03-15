@@ -18,13 +18,14 @@ id = "8032df424d5a4ad28a931f479c5b0d7f"
 
 # Push updates at each gym open/close transition (PDT = UTC-7, active Mar–Nov).
 # When DST ends in Nov, update times by +1 hour for PST (UTC-8).
+# Cloudflare day-of-week: 1=Sun 2=Mon 3=Tue 4=Wed 5=Thu 6=Fri 7=Sat
 [triggers]
 crons = [
-  "30 11 * * 1-5",  # Mon–Fri open 4:30am PDT
-  "0 13 * * 6-7",   # Sat–Sun open 6:00am PDT (6=Sat, 7=Sun)
-  "0 5 * * 1-4",    # Mon–Thu close 10:00pm PDT
-  "0 3 * * 5",      # Fri close 8:00pm PDT
-  "0 1 * * 6-7"     # Sat–Sun close 6:00pm PDT
+  "30 11 * * 2-6",  # Mon–Fri open 4:30am PDT  (11:30 UTC, CF 2=Mon 6=Fri)
+  "0 13 * * 1,7",   # Sat+Sun open 6:00am PDT  (13:00 UTC, CF 1=Sun 7=Sat)
+  "0 5 * * 3-6",    # Mon–Thu close 10:00pm PDT (05:00 UTC next day, CF 3=Tue 6=Fri)
+  "0 3 * * 7",      # Fri close 8:00pm PDT      (03:00 UTC Sat, CF 7=Sat)
+  "0 1 * * 1,2"     # Sat+Sun close 6:00pm PDT  (01:00 UTC Sun+Mon, CF 1=Sun 2=Mon)
 ]
 
 [vars]
