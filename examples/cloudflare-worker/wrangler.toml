@@ -8,6 +8,10 @@ rules = [
   { type = "Data", globs = ["**/*.png"], fallthrough = true }
 ]
 
+[observability.logs]
+enabled = true
+invocation_logs = true
+
 [assets]
 directory = "../pass-portal/dist"
 binding = "ASSETS"
