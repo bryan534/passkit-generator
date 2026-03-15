@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Read(//Users/bryan/Downloads/**)",
-      "Bash(which codex:*)"
+      "Bash(which codex:*)",
+      "WebFetch(domain:developers.mindbodyonline.com)",
+      "WebFetch(domain:api.mindbodyonline.com)",
+      "WebFetch(domain:www.mindbodyonline.com)",
+      "WebFetch(domain:support.mindbodyonline.com)",
+      "WebFetch(domain:www.npmjs.com)"
     ]
   }
 }

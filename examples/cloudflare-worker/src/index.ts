@@ -124,7 +124,7 @@ async function sendApnsPush(env: Env, pushToken: string): Promise<void> {
 	);
 	const jwt = `${message}.${toBase64Url(btoa(String.fromCharCode(...new Uint8Array(sig))))}`;
 
-	await fetch(`https://api.push.apple.com/3/device/${pushToken}`, {
+	const res = await fetch(`https://api.push.apple.com/3/device/${pushToken}`, {
 		method: "POST",
 		headers: {
 			authorization: `bearer ${jwt}`,
@@ -134,6 +134,13 @@ async function sendApnsPush(env: Env, pushToken: string): Promise<void> {
 		},
 		body: "{}",
 	});
+
+	if (res.ok) {
+		console.log(`APNs push ok — token: ${pushToken.slice(0, 8)}…`);
+	} else {
+		const body = await res.text();
+		console.error(`APNs push failed — status: ${res.status}, token: ${pushToken.slice(0, 8)}…, body: ${body}`);
+	}
 }
 
 // ── Auth helper ──────────────────────────────────────────────────────────────
@@ -284,6 +291,7 @@ export default {
 
 	// ── Cron: push update to all registered devices ──────────────────────────
 	async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
+		console.log(`Cron fired — pushing updates to registered devices`);
 		const listed = await env.PASS_REGISTRATIONS.list({ prefix: "reg:" });
 
 		// Fetch all registrations concurrently
